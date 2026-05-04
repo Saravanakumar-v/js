@@ -1,3 +1,8 @@
+---
+layout: default
+title: JavaScript — Complete Guide
+---
+
 # JavaScript: Complete Guide for Web Development
 
 A structured walkthrough of every important JavaScript concept — from absolute fundamentals to advanced web APIs.

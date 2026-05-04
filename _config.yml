@@ -1,0 +1,8 @@
+title: JavaScript Complete Guide
+description: A structured walkthrough of every important JavaScript concept
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    css_class: highlight
