@@ -37,6 +37,16 @@ A structured walkthrough of every important JavaScript concept — from absolute
 24. Performance & Optimization
 25. Security Basics
 26. Tooling & Ecosystem
+27. Map & Set
+28. WeakMap, WeakSet & WeakRef
+29. Regular Expressions
+30. JSON
+31. Proxy & Reflect
+32. Typed Arrays & ArrayBuffer
+33. Internationalization (Intl API)
+34. Functional Programming
+35. Design Patterns
+36. Memory Management & Garbage Collection
 
 ---
 
@@ -929,6 +939,716 @@ function throttle(fn, ms) {
 - **`this`**: it's about the call site; arrow functions opt out.
 - **Modules**: ESM everywhere new.
 - **Errors**: throw `Error` instances, catch narrowly, log usefully.
+
+---
+
+---
+
+## 27. Map & Set
+
+### Map
+
+An ordered collection of key-value pairs where **any value** (including objects) can be a key.
+
+```javascript
+const map = new Map();
+map.set("name", "Ada");
+map.set(42, "answer");
+map.set({ id: 1 }, "obj key");
+
+map.get("name");       // "Ada"
+map.has(42);           // true
+map.size;              // 3
+map.delete(42);
+
+// Iteration (insertion order preserved)
+for (const [key, val] of map) {}
+map.forEach((val, key) => {});
+[...map.keys()];
+[...map.values()];
+[...map.entries()];
+
+// Convert to/from Object
+const obj = Object.fromEntries(map);
+const map2 = new Map(Object.entries(obj));
+```
+
+**When to use Map over Object:** non-string keys, frequent add/delete (better perf), need `.size`, need insertion-order iteration.
+
+### Set
+
+An ordered collection of **unique** values.
+
+```javascript
+const set = new Set([1, 2, 3, 2, 1]); // {1, 2, 3}
+
+set.add(4);
+set.has(2);    // true
+set.delete(2);
+set.size;      // 3
+
+for (const val of set) {}
+
+// Deduplicate an array
+const unique = [...new Set(arr)];
+
+// Set operations
+const a = new Set([1, 2, 3]);
+const b = new Set([2, 3, 4]);
+
+const union        = new Set([...a, ...b]);          // {1,2,3,4}
+const intersection = new Set([...a].filter(x => b.has(x))); // {2,3}
+const difference   = new Set([...a].filter(x => !b.has(x))); // {1}
+```
+
+---
+
+## 28. WeakMap, WeakSet & WeakRef
+
+### WeakMap
+
+Keys must be **objects**; entries are garbage-collected when the key object is no longer reachable. Not iterable.
+
+```javascript
+const cache = new WeakMap();
+
+function process(obj) {
+  if (cache.has(obj)) return cache.get(obj);
+  const result = expensiveOp(obj);
+  cache.set(obj, result);
+  return result;
+}
+// When obj is GC'd, cache entry disappears automatically
+```
+
+**Use cases:** private data per object, memoization without memory leaks, storing metadata about DOM nodes.
+
+### WeakSet
+
+Set of objects; membership doesn't prevent GC. Not iterable.
+
+```javascript
+const seen = new WeakSet();
+
+function process(node) {
+  if (seen.has(node)) return;
+  seen.add(node);
+  // ...
+}
+```
+
+### WeakRef
+
+Hold a weak reference to an object; `.deref()` returns the object or `undefined` if collected.
+
+```javascript
+let obj = { data: "heavy" };
+const ref = new WeakRef(obj);
+
+// later...
+const val = ref.deref();
+if (val) console.log(val.data);
+```
+
+Use `FinalizationRegistry` to run cleanup when an object is GC'd (rare, advanced).
+
+---
+
+## 29. Regular Expressions
+
+```javascript
+const re1 = /pattern/flags;
+const re2 = new RegExp("pattern", "flags");
+```
+
+### Flags
+
+| Flag | Meaning |
+|---|---|
+| `g` | global — find all matches |
+| `i` | case-insensitive |
+| `m` | multiline — `^`/`$` match line start/end |
+| `s` | dotAll — `.` matches `\n` |
+| `u` | unicode |
+| `d` | indices — capture group positions |
+
+### Character classes
+
+```
+.       any char except \n
+\d \D   digit / non-digit
+\w \W   word char [a-zA-Z0-9_] / non-word
+\s \S   whitespace / non-whitespace
+[abc]   a, b, or c
+[^abc]  not a, b, or c
+[a-z]   range
+```
+
+### Quantifiers & Anchors
+
+```
+^   start    $   end
+*   0+       +   1+       ?   0 or 1
+{n} exactly  {n,} at least  {n,m} range
+*? +? ??     lazy (shortest match)
+```
+
+### Groups & Lookaheads
+
+```javascript
+/(foo)(bar)/        // capturing groups — $1, $2
+/(?:foo)/           // non-capturing
+/(?<year>\d{4})/    // named capture
+/foo(?=bar)/        // positive lookahead
+/foo(?!bar)/        // negative lookahead
+/(?<=foo)bar/       // positive lookbehind
+```
+
+### String methods
+
+```javascript
+const str = "hello world";
+
+str.match(/\w+/g);                  // ["hello", "world"]
+str.matchAll(/(\w+)/g);             // iterator of all matches with groups
+str.replace(/world/, "JS");         // "hello JS"
+str.replace(/(\w+)/g, "[$1]");      // "[hello] [world]"
+str.replaceAll("l", "L");           // "heLLo worLd"
+str.search(/world/);                // 6 (index, or -1)
+str.split(/\s+/);                   // ["hello", "world"]
+
+/\d+/.test("abc123");               // true
+/\d+/.exec("abc123");               // ["123", index: 3, ...]
+```
+
+### Common patterns
+
+```javascript
+const email    = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const url      = /^https?:\/\/[\w.-]+/;
+const phone    = /^\+?[\d\s\-()]{7,15}$/;
+const hexColor = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+const slug     = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+```
+
+---
+
+## 30. JSON
+
+JSON (JavaScript Object Notation) is a text format for serializing structured data. Only supports strings, numbers, booleans, null, arrays, and plain objects — **no** functions, `undefined`, `Date`, `Map`, `Set`, `BigInt`, or circular refs.
+
+```javascript
+// Serialize
+const json = JSON.stringify({ name: "Ada", age: 30 });
+// '{"name":"Ada","age":30}'
+
+// Pretty-print
+JSON.stringify(obj, null, 2);
+
+// Replacer — filter/transform keys
+JSON.stringify(obj, ["name", "age"]);           // only those keys
+JSON.stringify(obj, (key, val) =>
+  typeof val === "function" ? undefined : val); // drop functions
+
+// Parse
+const obj = JSON.parse('{"name":"Ada"}');
+
+// Reviver — transform on parse
+JSON.parse(json, (key, val) =>
+  key === "date" ? new Date(val) : val);
+```
+
+### Gotchas
+
+```javascript
+JSON.stringify(undefined);          // undefined (not a string!)
+JSON.stringify({ a: undefined });   // '{}'  — key dropped
+JSON.stringify([undefined]);        // '[null]'
+JSON.stringify(NaN);                // 'null'
+JSON.stringify(Infinity);           // 'null'
+JSON.stringify(new Date());         // '"2024-01-01T00:00:00.000Z"' (string)
+
+// Circular reference throws
+const a = {}; a.self = a;
+JSON.stringify(a);                  // TypeError
+
+// Custom serialization
+class User {
+  toJSON() { return { name: this.name }; } // controls what gets serialized
+}
+```
+
+### Deep clone (simple objects only)
+
+```javascript
+const clone = JSON.parse(JSON.stringify(obj)); // loses Dates, functions, etc.
+// Prefer structuredClone() for a proper deep clone
+```
+
+---
+
+## 31. Proxy & Reflect
+
+### Proxy
+
+Wraps an object and intercepts fundamental operations via **traps**.
+
+```javascript
+const handler = {
+  get(target, prop, receiver) {
+    console.log(`get: ${prop}`);
+    return Reflect.get(target, prop, receiver);
+  },
+  set(target, prop, value, receiver) {
+    if (typeof value !== "number") throw new TypeError("Numbers only");
+    return Reflect.set(target, prop, value, receiver);
+  },
+  has(target, prop) { return prop in target; },
+  deleteProperty(target, prop) { return Reflect.deleteProperty(target, prop); }
+};
+
+const obj = new Proxy({ x: 1 }, handler);
+obj.x;       // logs "get: x", returns 1
+obj.x = "s"; // throws TypeError
+```
+
+### Common traps
+
+| Trap | Triggered by |
+|---|---|
+| `get` | `obj.prop`, `obj[prop]` |
+| `set` | `obj.prop = val` |
+| `has` | `prop in obj` |
+| `deleteProperty` | `delete obj.prop` |
+| `apply` | calling a proxied function |
+| `construct` | `new ProxiedClass()` |
+| `ownKeys` | `Object.keys()`, `for...in` |
+
+### Reflect
+
+A built-in object with static methods matching every Proxy trap — the "default behavior" for traps.
+
+```javascript
+Reflect.get(target, prop);
+Reflect.set(target, prop, value);
+Reflect.has(target, prop);         // same as prop in target
+Reflect.ownKeys(target);           // all own keys including Symbols
+Reflect.apply(fn, thisArg, args);
+Reflect.construct(Class, args);
+```
+
+**Use cases:** reactive data (Vue 3 reactivity), validation layers, logging/tracing, read-only views, auto-memoization.
+
+---
+
+## 32. Typed Arrays & ArrayBuffer
+
+For working with raw binary data — used in WebGL, audio processing, file I/O, WebSockets, WebAssembly.
+
+### ArrayBuffer
+
+A fixed-length raw binary buffer. You can't read it directly — use a view.
+
+```javascript
+const buf = new ArrayBuffer(16); // 16 bytes
+buf.byteLength; // 16
+```
+
+### Typed Array views
+
+```javascript
+const i32 = new Int32Array(buf);     // 4 × 32-bit ints
+const f64 = new Float64Array(4);     // allocates its own buffer
+const u8  = new Uint8Array([1,2,3]);
+
+i32[0] = 42;
+i32.length;       // 4
+i32.byteLength;   // 16
+
+// Typed arrays share memory — mutation is visible across views
+const ab  = new ArrayBuffer(4);
+const u8v = new Uint8Array(ab);
+const u16 = new Uint16Array(ab);
+u8v[0] = 255;
+console.log(u16[0]); // 255 (same bytes)
+```
+
+### DataView
+
+Fine-grained control over byte order (endianness).
+
+```javascript
+const view = new DataView(buf);
+view.setInt32(0, 300, true);       // little-endian
+view.getInt32(0, true);            // 300
+view.setFloat64(4, 3.14, false);   // big-endian
+```
+
+### Common typed array types
+
+`Int8`, `Uint8`, `Uint8Clamped`, `Int16`, `Uint16`, `Int32`, `Uint32`, `Float32`, `Float64`, `BigInt64`, `BigUint64`
+
+---
+
+## 33. Internationalization (Intl API)
+
+Built-in, locale-aware formatting — no library needed.
+
+### Numbers & Currency
+
+```javascript
+new Intl.NumberFormat("en-US").format(1234567.89);
+// "1,234,567.89"
+
+new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(1234.5);
+// "1.234,50 €"
+
+new Intl.NumberFormat("en", { style: "percent" }).format(0.752);
+// "75%"
+
+new Intl.NumberFormat("en", { notation: "compact" }).format(1_500_000);
+// "1.5M"
+```
+
+### Dates & Times
+
+```javascript
+const d = new Date();
+
+new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(d);
+// "Wednesday, January 1, 2025"
+
+new Intl.DateTimeFormat("ja-JP", { dateStyle: "short", timeStyle: "short" }).format(d);
+// "2025/01/01 12:00"
+
+new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(-1, "day");
+// "yesterday"
+
+new Intl.RelativeTimeFormat("en").format(-3, "month");
+// "3 months ago"
+```
+
+### Strings & Sorting
+
+```javascript
+// Locale-aware string comparison (for sorting)
+["Ångström", "Zebra", "apple"].sort(
+  new Intl.Collator("en", { sensitivity: "base" }).compare
+);
+
+// Plural rules
+const pr = new Intl.PluralRules("en");
+pr.select(1);   // "one"
+pr.select(2);   // "other"
+```
+
+### List formatting
+
+```javascript
+new Intl.ListFormat("en", { style: "long", type: "conjunction" })
+  .format(["apples", "bananas", "oranges"]);
+// "apples, bananas, and oranges"
+```
+
+---
+
+## 34. Functional Programming
+
+### Pure functions
+
+Always return the same output for the same input; no side effects.
+
+```javascript
+// impure — mutates external state
+let total = 0;
+const addToTotal = n => (total += n);
+
+// pure
+const add = (a, b) => a + b;
+```
+
+### Immutability
+
+```javascript
+// Instead of mutating, return new values
+const updated = { ...user, age: 31 };
+const newArr  = [...arr, newItem];
+const without = arr.filter(x => x !== item);
+```
+
+### Higher-order functions
+
+Functions that take or return other functions.
+
+```javascript
+const withLogging = fn => (...args) => {
+  console.log("calling with", args);
+  const result = fn(...args);
+  console.log("result:", result);
+  return result;
+};
+const loggedAdd = withLogging(add);
+```
+
+### Currying
+
+Transform a multi-argument function into a chain of single-argument functions.
+
+```javascript
+const multiply = a => b => a * b;
+const double   = multiply(2);
+double(5); // 10
+
+// General curry helper
+const curry = fn => {
+  const arity = fn.length;
+  return function curried(...args) {
+    return args.length >= arity
+      ? fn(...args)
+      : (...more) => curried(...args, ...more);
+  };
+};
+```
+
+### Composition
+
+Combine functions so output of one flows into input of the next.
+
+```javascript
+const compose = (...fns) => x => fns.reduceRight((v, f) => f(v), x);
+const pipe    = (...fns) => x => fns.reduce((v, f) => f(v), x);
+
+const process = pipe(
+  str => str.trim(),
+  str => str.toLowerCase(),
+  str => str.replace(/\s+/g, "-")
+);
+process("  Hello World  "); // "hello-world"
+```
+
+### Memoization
+
+Cache results of pure functions.
+
+```javascript
+function memoize(fn) {
+  const cache = new Map();
+  return function(...args) {
+    const key = JSON.stringify(args);
+    if (cache.has(key)) return cache.get(key);
+    const result = fn.apply(this, args);
+    cache.set(key, result);
+    return result;
+  };
+}
+
+const fib = memoize(n => n <= 1 ? n : fib(n - 1) + fib(n - 2));
+```
+
+### Partial application
+
+```javascript
+const partial = (fn, ...preset) => (...later) => fn(...preset, ...later);
+
+const add3 = partial(add, 3);
+add3(5); // 8
+```
+
+---
+
+## 35. Design Patterns
+
+### Creational
+
+**Factory** — creates objects without `new` at call site.
+```javascript
+function createUser(name, role) {
+  return { name, role, createdAt: Date.now() };
+}
+```
+
+**Singleton** — one instance per application.
+```javascript
+const db = (() => {
+  let instance;
+  return {
+    getInstance() {
+      if (!instance) instance = { connected: false };
+      return instance;
+    }
+  };
+})();
+```
+
+**Builder** — construct complex objects step by step.
+```javascript
+class QueryBuilder {
+  #table = ""; #conditions = []; #limit = null;
+  from(table)  { this.#table = table; return this; }
+  where(cond)  { this.#conditions.push(cond); return this; }
+  take(n)      { this.#limit = n; return this; }
+  build() {
+    let q = `SELECT * FROM ${this.#table}`;
+    if (this.#conditions.length) q += ` WHERE ${this.#conditions.join(" AND ")}`;
+    if (this.#limit) q += ` LIMIT ${this.#limit}`;
+    return q;
+  }
+}
+new QueryBuilder().from("users").where("age > 18").take(10).build();
+```
+
+### Structural
+
+**Module** — encapsulate private state with a public API (the revealing module pattern).
+```javascript
+const counter = (() => {
+  let count = 0;
+  return {
+    increment() { count++; },
+    decrement() { count--; },
+    value()     { return count; }
+  };
+})();
+```
+
+**Decorator** — add behaviour to an object without changing its class.
+```javascript
+function readonly(target, key, descriptor) {
+  descriptor.writable = false;
+  return descriptor;
+}
+```
+
+**Facade** — simplified interface over a complex subsystem.
+```javascript
+const VideoPlayer = {
+  play(url) {
+    Decoder.init();
+    Buffer.load(url);
+    Renderer.start();
+  }
+};
+```
+
+### Behavioural
+
+**Observer** — publish/subscribe.
+```javascript
+class EventEmitter {
+  #listeners = new Map();
+  on(event, fn)  { (this.#listeners.get(event) ?? this.#listeners.set(event, new Set()).get(event)).add(fn); }
+  off(event, fn) { this.#listeners.get(event)?.delete(fn); }
+  emit(event, ...args) { this.#listeners.get(event)?.forEach(fn => fn(...args)); }
+}
+```
+
+**Strategy** — swap algorithms at runtime.
+```javascript
+const sorters = {
+  bubble: arr => { /* ... */ },
+  quick:  arr => { /* ... */ },
+};
+function sort(arr, strategy = "quick") {
+  return sorters[strategy](arr);
+}
+```
+
+**Command** — encapsulate actions as objects (enables undo).
+```javascript
+const history = [];
+function execute(cmd) {
+  cmd.execute();
+  history.push(cmd);
+}
+function undo() {
+  history.pop()?.undo();
+}
+```
+
+**Middleware / Chain of Responsibility** — pass a request through a chain of handlers (Express-style).
+```javascript
+function applyMiddleware(...fns) {
+  return (req, res) => {
+    let i = 0;
+    const next = () => fns[i++]?.(req, res, next);
+    next();
+  };
+}
+```
+
+---
+
+## 36. Memory Management & Garbage Collection
+
+JavaScript uses **automatic garbage collection** — the engine reclaims memory that is no longer reachable.
+
+### Reachability
+
+An object is kept alive as long as it's reachable from a root (global scope, call stack, closures). When all references are gone, the GC can collect it.
+
+```javascript
+let user = { name: "Ada" }; // object reachable via `user`
+user = null;                 // now unreachable → eligible for GC
+```
+
+### Common memory leaks
+
+```javascript
+// 1. Forgotten global variables
+function leak() { forgotten = "oops"; } // implicit global
+
+// 2. Detached DOM nodes still referenced
+const btn = document.getElementById("btn");
+document.body.removeChild(btn);
+// btn variable still holds a reference — node can't be collected
+
+// 3. Closures holding large data unnecessarily
+function outer() {
+  const bigData = new Array(1_000_000).fill("x");
+  return function inner() {
+    return bigData[0]; // bigData can't be GC'd while inner lives
+  };
+}
+
+// 4. Uncleared timers / intervals
+const id = setInterval(() => { /* uses outerVar */ }, 1000);
+// if you never call clearInterval(id), outerVar is pinned forever
+
+// 5. Event listeners on removed elements
+el.addEventListener("click", handler);
+el.remove(); // listener + closure still alive if handler holds references
+el.removeEventListener("click", handler); // fix
+```
+
+### Tools
+
+- **Chrome DevTools → Memory tab**: heap snapshots, allocation timelines
+- **`performance.measureUserAgentSpecificMemory()`** (Chrome, requires `cross-origin-isolated`)
+- **WeakMap / WeakRef** — let objects be GC'd while still holding a reference (see §28)
+
+### V8 GC strategy (brief)
+
+V8 uses a **generational** GC:
+- **Young generation (Scavenger)**: short-lived objects; collected frequently and fast.
+- **Old generation (Mark-Compact)**: long-lived objects; collected less often.
+
+Allocation in tight loops creates GC pressure — prefer object pools or reuse arrays where performance matters.
+
+---
+
+## Quick Mental Models
+
+- **Variables**: `const` by default, `let` when reassigning, never `var`.
+- **Equality**: always `===` and `!==`.
+- **Async**: prefer `async/await`; use `Promise.all` for parallelism.
+- **DOM**: query once, cache, batch updates.
+- **Events**: delegate when you can.
+- **`this`**: it's about the call site; arrow functions opt out.
+- **Modules**: ESM everywhere new.
+- **Errors**: throw `Error` instances, catch narrowly, log usefully.
+- **Collections**: `Map` for key-value with non-string keys, `Set` for unique values.
+- **Memory**: clear timers, remove listeners, avoid unintended closures over large data.
+- **FP**: pure functions + immutability + composition scale better than mutation-heavy code.
 
 ---
 
